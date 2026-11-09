@@ -1,4 +1,12 @@
+package ba.untz.attendance1
 
+data class Student(val id: String, val name: String)
+
+enum class Window(val label: String){
+    START("start"),
+    MIDDLE("middle"),
+    END("end")
+}
 
 sealed interface CheckInStatus{
     data object OnTime: CheckInStatus

@@ -31,7 +31,7 @@ fun CheckInStatus.label() : String = when(this) {
     CheckInStatus.OnTime -> "On time"
     is CheckInStatus.Late-> "$minutes min late"
     CheckInStatus.Absent -> "Absent"
-}
+} // forgot commit
 
 val sampleCheckIns = listOf(
     CheckIn(Student("IB101", "Amina Bajrektarević"), Window.START, 481, CheckInStatus.OnTime),

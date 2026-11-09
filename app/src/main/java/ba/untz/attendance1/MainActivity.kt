@@ -1,0 +1,165 @@
+package ba.untz.attendance1
+
+import android.content.res.Configuration
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import ba.untz.attendance1.ui.theme.Attendance1Theme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            Attendance1Theme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
+                    ProfessorScreen(Modifier.padding(padding))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AttendanceSummary(checkIns: List<CheckIn>, modifier: Modifier = Modifier) {
+    val onTime = checkIns.count { it.status == CheckInStatus.OnTime }
+    val late = checkIns.count { it.status is CheckInStatus.Late }
+    val absent = checkIns.count { it.status == CheckInStatus.Absent }
+    Text("On time: $onTime · Late: $late · Absent: $absent", modifier)
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AttendanceSummaryPreview() { Attendance1Theme { AttendanceSummary(sampleCheckIns) } }
+
+// Prediction: the MIDDLE preview shows On time: 4 · Late: 2 · Absent: 0.
+@Preview(name = "Middle summary", showBackground = true)
+@Composable
+private fun MiddleSummaryPreview() { Attendance1Theme { AttendanceSummary(sampleCheckIns.filter { it.window == Window.MIDDLE }) } }
+
+@Composable
+fun Avatar(initials: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(initials, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+fun StatusBadge(status: CheckInStatus, modifier: Modifier = Modifier) {
+    Text(
+        status.label(),
+        modifier = modifier.clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        color = status.color(),
+        style = MaterialTheme.typography.labelMedium
+    )
+}
+
+@Composable
+fun CheckInStatus.color(): Color = when (this) {
+    CheckInStatus.OnTime -> MaterialTheme.colorScheme.primary
+    is CheckInStatus.Late -> MaterialTheme.colorScheme.error
+    CheckInStatus.Absent -> MaterialTheme.colorScheme.outline
+}
+
+fun CheckIn.timeText(): String = if (status == CheckInStatus.Absent) "--" else
+    "%02d:%02d".format(minutes / 60, minutes % 60)
+
+@Composable
+fun CheckInRow(checkIn: CheckIn, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box {
+            Avatar(checkIn.student.initials())
+            if (checkIn.status is CheckInStatus.Late) {
+                Box(Modifier.align(Alignment.BottomEnd).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(checkIn.student.name, style = MaterialTheme.typography.titleMedium)
+            StatusBadge(checkIn.status)
+        }
+        Text(checkIn.timeText(), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Preview(name = "Light", showBackground = true)
+@Preview(name = "Dark", uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Composable
+private fun CheckInRowPreview() { Attendance1Theme { Surface { CheckInRow(sampleCheckIns[1]) } } }
+
+@Composable
+fun WindowControls(openWindow: Window?, onOpen: (Window) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.padding(16.dp)) {
+        Text("Open: ${openWindow?.label ?: "none"}", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Window.entries.forEach { window ->
+                Button(onClick = { onOpen(window) }, enabled = openWindow != window) {
+                    Text(window.label.replaceFirstChar { it.uppercase() })
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Middle is open", showBackground = true)
+@Composable
+private fun WindowControlsPreview() { Attendance1Theme { WindowControls(Window.MIDDLE, onOpen = {}) } }
+
+@Composable
+fun CheckInCard(checkIn: CheckIn, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val sameStudent = sampleCheckIns.filter { it.student == checkIn.student }
+    Column(modifier.fillMaxWidth().clickable { expanded = !expanded }) {
+        CheckInRow(checkIn)
+        if (expanded) {
+            Column(Modifier.padding(start = 64.dp, bottom = 8.dp)) {
+                sameStudent.forEach { item ->
+                    Text("${item.window.label}: ${item.status.label()}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LateFilter(onlyLate: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onToggle, modifier = modifier) { Text(if (onlyLate) "Show all" else "Only late") }
+}
+
+@Composable
+fun ProfessorScreen(modifier: Modifier = Modifier) {
+    var openWindow by rememberSaveable { mutableStateOf<Window?>(null) }
+    var onlyLate by rememberSaveable { mutableStateOf(false) }
+    val current = sampleCheckIns.filter { it.window == openWindow }
+    Column(modifier.fillMaxSize().padding(8.dp)) {
+        WindowControls(openWindow, onOpen = { openWindow = it })
+        if (openWindow == null) {
+            Text("Open a window to see check-ins", Modifier.padding(16.dp))
+        } else {
+            // The summary reports the full window; the filter only changes the displayed cards.
+            AttendanceSummary(current, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            LateFilter(onlyLate, onToggle = { onlyLate = !onlyLate }, Modifier.align(Alignment.End))
+            val visible = if (onlyLate) current.filter { it.status is CheckInStatus.Late } else current
+            visible.forEach { CheckInCard(it) }
+        }
+    }
+}

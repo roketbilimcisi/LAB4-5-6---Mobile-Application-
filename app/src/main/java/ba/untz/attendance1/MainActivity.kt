@@ -8,6 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import ba.untz.attendance1.ui.theme.Attendance1Theme
 import androidx.compose.foundation.rememberScrollState
 
@@ -171,6 +174,74 @@ private fun LateOnlySwitchEnabledPreview() {
 @Composable
 private fun LateOnlySwitchDisabledPreview() {
     Attendance1Theme { LateOnlySwitch(onlyLate = false, onOnlyLateChange = {}) }
+}
+
+enum class StatusKind(val label: String) {
+    ON_TIME("On time"),
+    LATE("Late"),
+    ABSENT("Absent")
+}
+
+// Prediction: If each radio option owns its own remember { mutableStateOf(false) }, each option can become selected independently, so multiple statuses may appear selected at once.
+@Composable
+fun StatusPicker(selected: StatusKind, onSelect: (StatusKind) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.selectableGroup()) {
+        StatusKind.entries.forEach { status ->
+            Row(
+                modifier = Modifier.fillMaxWidth().selectable(
+                    selected = selected == status,
+                    role = Role.RadioButton,
+                    onClick = { onSelect(status) }
+                ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = selected == status, onClick = null)
+                Text(status.label)
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun StatusPickerPreview() {
+    Attendance1Theme { StatusPicker(selected = StatusKind.LATE, onSelect = {}) }
+}
+
+// Prediction: 5-minute intervals from 5 to 60 require 10 interior steps. Setting steps = 12 creates 14 total selectable values; the spacing is 55/13 minutes, so the intermediate values are not all whole numbers.
+@Composable
+fun LateMinutesSlider(
+    minutes: Int,
+    onMinutesChange: (Int) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Text(if (enabled) "Late: $minutes min" else "Late: —")
+        Slider(
+            value = minutes.toFloat(),
+            onValueChange = { onMinutesChange(it.roundToInt()) },
+            enabled = enabled,
+            valueRange = 5f..60f,
+            steps = 10
+        )
+    }
+}
+
+@Preview(name = "Late slider enabled", showBackground = true)
+@Composable
+private fun LateMinutesSliderEnabledPreview() {
+    Attendance1Theme {
+        LateMinutesSlider(minutes = 15, onMinutesChange = {}, enabled = true)
+    }
+}
+
+@Preview(name = "Late slider disabled", showBackground = true)
+@Composable
+private fun LateMinutesSliderDisabledPreview() {
+    Attendance1Theme {
+        LateMinutesSlider(minutes = 15, onMinutesChange = {}, enabled = false)
+    }
 }
 
 @Composable

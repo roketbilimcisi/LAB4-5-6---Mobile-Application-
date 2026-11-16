@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ba.untz.attendance1.ui.theme.Attendance1Theme
+import androidx.compose.foundation.rememberScrollState
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,9 +127,9 @@ fun WindowControls(openWindow: Window?, onOpen: (Window) -> Unit, modifier: Modi
 private fun WindowControlsPreview() { Attendance1Theme { WindowControls(Window.MIDDLE, onOpen = {}) } }
 
 @Composable
-fun CheckInCard(checkIn: CheckIn, modifier: Modifier = Modifier) {
+fun CheckInCard(checkIn: CheckIn, allCheckIns: List<CheckIn>, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    val sameStudent = sampleCheckIns.filter { it.student == checkIn.student }
+    val sameStudent = allCheckIns.filter { it.student == checkIn.student }
     Column(modifier.fillMaxWidth().clickable { expanded = !expanded }) {
         CheckInRow(checkIn)
         if (expanded) {
@@ -141,25 +143,18 @@ fun CheckInCard(checkIn: CheckIn, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun LateFilter(onlyLate: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
-    TextButton(onClick = onToggle, modifier = modifier) { Text(if (onlyLate) "Show all" else "Only late") }
-}
-
-@Composable
 fun ProfessorScreen(modifier: Modifier = Modifier) {
     var openWindow by rememberSaveable { mutableStateOf<Window?>(null) }
-    var onlyLate by rememberSaveable { mutableStateOf(false) }
-    val current = sampleCheckIns.filter { it.window == openWindow }
-    Column(modifier.fillMaxSize().padding(8.dp)) {
+    var checkIns by remember { mutableStateOf(sampleCheckIns) }
+    val current = checkIns.filter { it.window == openWindow }
+    Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         WindowControls(openWindow, onOpen = { openWindow = it })
         if (openWindow == null) {
             Text("Open a window to see check-ins", Modifier.padding(16.dp))
         } else {
             // The summary reports the full window; the filter only changes the displayed cards.
             AttendanceSummary(current, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            LateFilter(onlyLate, onToggle = { onlyLate = !onlyLate }, Modifier.align(Alignment.End))
-            val visible = if (onlyLate) current.filter { it.status is CheckInStatus.Late } else current
-            visible.forEach { CheckInCard(it) }
+            current.forEach { CheckInCard(it, allCheckIns = checkIns) }
         }
     }
 }

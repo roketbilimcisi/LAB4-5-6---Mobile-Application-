@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ba.untz.attendance1.ui.theme.Attendance1Theme
@@ -145,6 +147,33 @@ private fun SearchFieldPreview() {
 }
 
 @Composable
+fun LateOnlySwitch(onlyLate: Boolean, onOnlyLateChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().toggleable(
+            value = onlyLate,
+            role = Role.Switch,
+            onValueChange = onOnlyLateChange
+        ).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Only late", Modifier.weight(1f))
+        Switch(checked = onlyLate, onCheckedChange = null)
+    }
+}
+
+@Preview(name = "Late only enabled", showBackground = true)
+@Composable
+private fun LateOnlySwitchEnabledPreview() {
+    Attendance1Theme { LateOnlySwitch(onlyLate = true, onOnlyLateChange = {}) }
+}
+
+@Preview(name = "Late only disabled", showBackground = true)
+@Composable
+private fun LateOnlySwitchDisabledPreview() {
+    Attendance1Theme { LateOnlySwitch(onlyLate = false, onOnlyLateChange = {}) }
+}
+
+@Composable
 fun CheckInCard(checkIn: CheckIn, allCheckIns: List<CheckIn>, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     val sameStudent = allCheckIns.filter { it.student == checkIn.student }
@@ -165,6 +194,7 @@ fun ProfessorScreen(modifier: Modifier = Modifier) {
     var openWindow by rememberSaveable { mutableStateOf<Window?>(null) }
     var checkIns by remember { mutableStateOf(sampleCheckIns) }
     var query by rememberSaveable { mutableStateOf("") }
+    var onlyLate by rememberSaveable { mutableStateOf(false) }
     val current = checkIns.filter { it.window == openWindow }
     Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         WindowControls(openWindow, onOpen = { openWindow = it })
@@ -175,7 +205,12 @@ fun ProfessorScreen(modifier: Modifier = Modifier) {
             AttendanceSummary(current, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             // If onQueryChange = {} is passed here, typing cannot update query, so the field stays unchanged.
             SearchField(query = query, onQueryChange = { query = it }, modifier = Modifier.padding(horizontal = 16.dp))
-            val visible = current.filter { it.student.name.contains(query.trim(), ignoreCase = true) }
+            LateOnlySwitch(onlyLate = onlyLate, onOnlyLateChange = { onlyLate = it })
+            // Prediction: In the middle window, searching "s" with Only late off shows Faris Ćosić and Selma Lugavić; Hedija Šišić is excluded because "Š" is not the same letter as unaccented "s". With Only late on, Faris and Selma remain because both matching check-ins are late.
+            val visible = current.filter {
+                it.student.name.contains(query.trim(), ignoreCase = true) &&
+                    (!onlyLate || it.status is CheckInStatus.Late)
+            }
             if (visible.isEmpty()) {
                 Text("No check-ins match the filter", Modifier.padding(16.dp))
             } else {

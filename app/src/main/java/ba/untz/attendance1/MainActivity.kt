@@ -127,6 +127,24 @@ fun WindowControls(openWindow: Window?, onOpen: (Window) -> Unit, modifier: Modi
 private fun WindowControlsPreview() { Attendance1Theme { WindowControls(Window.MIDDLE, onOpen = {}) } }
 
 @Composable
+fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text("Search student") },
+        placeholder = { Text("e.g. Amir") },
+        singleLine = true
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchFieldPreview() {
+    Attendance1Theme { SearchField(query = "ami", onQueryChange = {}) }
+}
+
+@Composable
 fun CheckInCard(checkIn: CheckIn, allCheckIns: List<CheckIn>, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     val sameStudent = allCheckIns.filter { it.student == checkIn.student }
@@ -146,6 +164,7 @@ fun CheckInCard(checkIn: CheckIn, allCheckIns: List<CheckIn>, modifier: Modifier
 fun ProfessorScreen(modifier: Modifier = Modifier) {
     var openWindow by rememberSaveable { mutableStateOf<Window?>(null) }
     var checkIns by remember { mutableStateOf(sampleCheckIns) }
+    var query by rememberSaveable { mutableStateOf("") }
     val current = checkIns.filter { it.window == openWindow }
     Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         WindowControls(openWindow, onOpen = { openWindow = it })
@@ -154,7 +173,14 @@ fun ProfessorScreen(modifier: Modifier = Modifier) {
         } else {
             // The summary reports the full window; the filter only changes the displayed cards.
             AttendanceSummary(current, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            current.forEach { CheckInCard(it, allCheckIns = checkIns) }
+            // If onQueryChange = {} is passed here, typing cannot update query, so the field stays unchanged.
+            SearchField(query = query, onQueryChange = { query = it }, modifier = Modifier.padding(horizontal = 16.dp))
+            val visible = current.filter { it.student.name.contains(query.trim(), ignoreCase = true) }
+            if (visible.isEmpty()) {
+                Text("No check-ins match the filter", Modifier.padding(16.dp))
+            } else {
+                visible.forEach { CheckInCard(it, allCheckIns = checkIns) }
+            }
         }
     }
 }
